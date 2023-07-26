@@ -17,7 +17,7 @@ from src import utils
 
 class DiscreteDenoisingDiffusion(pl.LightningModule):
     def __init__(self, cfg, dataset_infos, train_metrics, sampling_metrics, visualization_tools, extra_features,
-                 domain_features):
+                 domain_features, sample_bigger_graphs=0):
         super().__init__()
 
         input_dims = dataset_infos.input_dims
@@ -59,6 +59,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         self.visualization_tools = visualization_tools
         self.extra_features = extra_features
         self.domain_features = domain_features
+        self.sample_bigger_graphs = sample_bigger_graphs # added by Steve
 
         self.model = GraphTransformer(n_layers=cfg.model.n_layers,
                                       input_dims=input_dims,
@@ -143,7 +144,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                       f" -- {time.time() - self.start_epoch_time:.1f}s ")
         epoch_at_metrics, epoch_bond_metrics = self.train_metrics.log_epoch_metrics()
         self.print(f"Epoch {self.current_epoch}: {epoch_at_metrics} -- {epoch_bond_metrics}")
-        print(torch.cuda.memory_summary())
+        #print(torch.cuda.memory_summary())
 
     def on_validation_epoch_start(self) -> None:
         self.val_nll.reset()
@@ -208,8 +209,9 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                 samples_left_to_generate -= to_generate
                 chains_left_to_save -= chains_save
             self.print("Computing sampling metrics...")
+            result_path = os.path.join(os.getcwd(), f'graphs/{self.name}/')
             self.sampling_metrics.forward(samples, self.name, self.current_epoch, val_counter=-1, test=False,
-                                          local_rank=self.local_rank)
+                                          local_rank=self.local_rank, path=result_path) # saving npz
             self.print(f'Done. Sampling took {time.time() - start:.2f} seconds\n')
             print("Validation epoch end ends...")
 
@@ -266,13 +268,15 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             to_save = min(samples_left_to_save, bs)
             chains_save = min(chains_left_to_save, bs)
             samples.extend(self.sample_batch(id, to_generate, num_nodes=None, save_final=to_save,
-                                             keep_chain=chains_save, number_chain_steps=self.number_chain_steps))
+                                             keep_chain=chains_save, number_chain_steps=self.number_chain_steps,
+                                             sample_bigger_graphs=self.sample_bigger_graphs))
             id += to_generate
             samples_left_to_save -= to_save
             samples_left_to_generate -= to_generate
             chains_left_to_save -= chains_save
-        self.print("Saving the generated graphs")
-        filename = f'generated_samples1.txt'
+        result_path = os.path.join(os.getcwd(), f'graphs/{self.name}')        
+        self.print(f"Saving the generated graphs in {result_path}")
+        filename = f'{result_path}/generated_samples1.txt'
         for i in range(2, 10):
             if os.path.exists(filename):
                 filename = f'generated_samples{i}.txt'
@@ -293,7 +297,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                     f.write("\n")
                 f.write("\n")
         self.print("Generated graphs Saved. Computing sampling metrics...")
-        self.sampling_metrics(samples, self.name, self.current_epoch, self.val_counter, test=True, local_rank=self.local_rank)
+        result_path = os.path.join(os.getcwd(), f'graphs/{self.name}/')
+        self.sampling_metrics(samples, self.name, self.current_epoch, self.val_counter, test=True, local_rank=self.local_rank, path=result_path)
         self.print("Done testing.")
 
 
@@ -487,7 +492,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
     @torch.no_grad()
     def sample_batch(self, batch_id: int, batch_size: int, keep_chain: int, number_chain_steps: int,
-                     save_final: int, num_nodes=None):
+                     save_final: int, num_nodes=None, sample_bigger_graphs=0):
         """
         :param batch_id: int
         :param batch_size: int
@@ -495,10 +500,11 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         :param save_final: int: number of predictions to save to file
         :param keep_chain: int: number of chains to save to file
         :param keep_chain_steps: number of timesteps to save for each chain
+        :param sample_bigger_graphs: whether to sample bigger graphs, not in train distrib
         :return: molecule_list. Each element of this list is a tuple (atom_types, charges, positions)
         """
         if num_nodes is None:
-            n_nodes = self.node_dist.sample_n(batch_size, self.device)
+            n_nodes = self.node_dist.sample_n(batch_size, self.device) + sample_bigger_graphs
         elif type(num_nodes) == int:
             n_nodes = num_nodes * torch.ones(batch_size, device=self.device, dtype=torch.int)
         else:

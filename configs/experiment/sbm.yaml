@@ -2,7 +2,7 @@
 general:
     name : 'sbm'
     gpus : 1
-    wandb: 'online'
+    wandb: 'offline'
     resume: null            # If resume, path to ckpt file from outputs directory in main directory
     test_only: null
     check_val_every_n_epochs: 100

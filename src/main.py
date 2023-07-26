@@ -18,7 +18,7 @@ from diffusion_model import LiftedDenoisingDiffusion
 from diffusion_model_discrete import DiscreteDenoisingDiffusion
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
 
-
+torch.set_float32_matmul_precision("medium") # added by Steve
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
 
@@ -67,6 +67,8 @@ def get_resume_adaptive(cfg, model_kwargs):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    print("CONFIG:")
+    print(cfg)
     dataset_config = cfg["dataset"]
 
     if dataset_config["name"] in ['sbm', 'comm-20', 'planar']:
@@ -162,7 +164,7 @@ def main(cfg: DictConfig):
     utils.create_folders(cfg)
 
     if cfg.model.type == 'discrete':
-        model = DiscreteDenoisingDiffusion(cfg=cfg, **model_kwargs)
+        model = DiscreteDenoisingDiffusion(cfg=cfg, sample_bigger_graphs=cfg.general.sample_bigger_graphs, **model_kwargs)
     else:
         model = LiftedDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
