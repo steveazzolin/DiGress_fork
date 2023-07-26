@@ -752,7 +752,7 @@ class SamplingSpectreMetrics(nn.Module):
                                                    remove_self_loops=True))
         return networkx_graphs
 
-    def forward(self, generated_graphs: list, name, current_epoch, val_counter, save_graphs = True):
+    def forward(self, generated_graphs: list, name, current_epoch, val_counter, save_graphs = True, path=""):
         print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
               f" test graphs -- emd computation: {self.compute_emd}")
         networkx_graphs = []
@@ -768,7 +768,7 @@ class SamplingSpectreMetrics(nn.Module):
             networkx_graphs.append(nx_graph)
 
         print("Saving all adjacency matrices")
-        np.savez('generated_adjs.npz', *adjacency_matrices)
+        np.savez(f'{path}generated_adjs.npz', *adjacency_matrices)
 
         print("Computing degree stats..")
         degree = degree_stats(self.test_graphs, networkx_graphs, is_parallel=True,
@@ -848,7 +848,7 @@ class SpectreSamplingMetrics(nn.Module):
                                                    remove_self_loops=True))
         return networkx_graphs
 
-    def forward(self, generated_graphs: list, name, current_epoch, val_counter, local_rank, test=False):
+    def forward(self, generated_graphs: list, name, current_epoch, val_counter, local_rank, test=False, path=""):
         if local_rank == 0:
             print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
                   f" test graphs -- emd computation: {self.compute_emd}")
@@ -864,7 +864,7 @@ class SpectreSamplingMetrics(nn.Module):
             nx_graph = nx.from_numpy_array(A)
             networkx_graphs.append(nx_graph)
 
-        np.savez('generated_adjs.npz', *adjacency_matrices)
+        np.savez(f'{path}generated_adjs.npz', *adjacency_matrices)
 
         if 'degree' in self.metrics_list:
             if local_rank == 0:

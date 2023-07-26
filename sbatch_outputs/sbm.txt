@@ -1,0 +1,45 @@
+<frozen importlib._bootstrap>:228: RuntimeWarning: to-Python converter for std::pair<double, double> already registered; second conversion method ignored.
+/home/steve.azzolin/anaconda3/envs/digress/lib/python3.9/site-packages/torch/nn/init.py:405: UserWarning: Initializing zero-element tensors is a no-op
+  warnings.warn("Initializing zero-element tensors is a no-op")
+Marginal distribution of the classes: tensor([1.]) for nodes, tensor([0.9156, 0.0844]) for edges
+Marginal distribution of the classes: tensor([1.]) for nodes, tensor([0.9156, 0.0844]) for edges
+Multiprocessing is handled by SLURM.
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Restoring states from the checkpoint path at /home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_sbm.ckpt
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+Loaded model weights from checkpoint at /home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_sbm.ckpt
+/home/steve.azzolin/anaconda3/envs/digress/lib/python3.9/site-packages/torchmetrics/utilities/prints.py:36: UserWarning: The ``compute`` method of metric SumExceptBatchMetric was called before the ``update`` method which may lead to errors, as metric states have not yet been updated.
+  warnings.warn(*args, **kwargs)
+Starting test...
+Epoch 49499: Test NLL 5461.64 -- Test Atom type KL 0.00 --  Test Edge type KL: 5.43
+Test loss: 5461.6421
+Samples left to generate: 40/40<class 'networkx.utils.decorators.argmap'> compilation 12:4: FutureWarning: normalized_laplacian_matrix will return a scipy.sparse array instead of a matrix in Networkx 3.0.
+/home/steve.azzolin/DiGress_fork/src/analysis/visualization.py:182: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+Visualizing chains...
+1/20 complete2/20 complete3/20 complete4/20 complete5/20 complete6/20 complete7/20 complete8/20 complete9/20 complete10/20 complete11/20 complete12/20 complete13/20 complete14/20 complete15/20 complete16/20 complete17/20 complete18/20 complete19/20 complete20/20 complete
+Visualizing molecules...
+Done.
+Samples left to generate: 16/40/home/steve.azzolin/DiGress_fork/src/analysis/spectre_utils.py:613: FutureWarning: adjacency_matrix will return a scipy.sparse array instead of a matrix in Networkx 3.0.
+  adj = nx.adjacency_matrix(G).toarray()
+Visualizing chains...
+
+Visualizing molecules...
+Done.
+Saving the generated graphs
+Generated graphs Saved. Computing sampling metrics...
+Computing sampling metrics between 40 generated graphs and 80 test graphs -- emd computation: False
+Building networkx graphs...
+Computing degree stats..
+Computing spectre stats...
+Computing clustering stats...
+Computing orbit stats...
+Computing accuracy...
+Computing all fractions...
+Sampling statistics {'spectre': 0.004580634456768706, 'clustering': 0.049798883446845035, 'orbit': 0.0460881881871395, 'sbm_acc': 0.6, 'sampling/frac_unique': 1.0, 'sampling/frac_unique_non_iso': 1.0, 'sampling/frac_unic_non_iso_valid': 0.575, 'sampling/frac_non_iso': 1.0}
+Done testing.
+DONE
+Execution lasted 19 minutes

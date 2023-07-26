@@ -1,0 +1,42 @@
+wandb: Currently logged in as: mcstewe. Use `wandb login --relogin` to force relogin
+<frozen importlib._bootstrap>:228: RuntimeWarning: to-Python converter for std::pair<double, double> already registered; second conversion method ignored.
+/home/steve.azzolin/anaconda3/envs/digress/lib/python3.9/site-packages/torch/nn/init.py:405: UserWarning: Initializing zero-element tensors is a no-op
+  warnings.warn("Initializing zero-element tensors is a no-op")
+CONFIG:
+{'general': {'name': 'planar', 'wandb': 'offline', 'gpus': 1, 'resume': None, 'test_only': '/home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_planar.ckpt', 'sample_bigger_graphs': False, 'check_val_every_n_epochs': 5, 'sample_every_val': 4, 'val_check_interval': None, 'samples_to_generate': 512, 'samples_to_save': 20, 'chains_to_save': 1, 'log_every_steps': 50, 'number_chain_steps': 50, 'final_model_samples_to_generate': 10000, 'final_model_samples_to_save': 30, 'final_model_chains_to_save': 20, 'evaluate_all_checkpoints': False}, 'model': {'type': 'discrete', 'transition': 'marginal', 'model': 'graph_tf', 'diffusion_steps': 500, 'diffusion_noise_schedule': 'cosine', 'n_layers': 5, 'extra_features': 'all', 'hidden_mlp_dims': {'X': 256, 'E': 128, 'y': 128}, 'hidden_dims': {'dx': 256, 'de': 64, 'dy': 64, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 128, 'dim_ffy': 128}, 'lambda_train': [5, 0]}, 'train': {'n_epochs': 1000, 'batch_size': 32, 'lr': 0.0002, 'clip_grad': None, 'save_model': True, 'num_workers': 0, 'ema_decay': 0, 'progress_bar': False, 'weight_decay': 1e-12, 'optimizer': 'adamw', 'seed': 0}, 'dataset': {'name': 'planar', 'remove_h': None, 'datadir': 'data/planar/'}}
+Marginal distribution of the classes: tensor([1.]) for nodes, tensor([0.9118, 0.0882]) for edges
+Marginal distribution of the classes: tensor([1.]) for nodes, tensor([0.9118, 0.0882]) for edges
+Multiprocessing is handled by SLURM.
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Restoring states from the checkpoint path at /home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_planar.ckpt
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+Loaded model weights from checkpoint at /home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_planar.ckpt
+/home/steve.azzolin/anaconda3/envs/digress/lib/python3.9/site-packages/torchmetrics/utilities/prints.py:36: UserWarning: The ``compute`` method of metric SumExceptBatchMetric was called before the ``update`` method which may lead to errors, as metric states have not yet been updated.
+  warnings.warn(*args, **kwargs)
+Starting test...
+Epoch 99999: Test NLL 937.17 -- Test Atom type KL 0.00 --  Test Edge type KL: 0.94
+Test loss: 937.1660
+Samples left to generate: 40/40<class 'networkx.utils.decorators.argmap'> compilation 12:4: FutureWarning: normalized_laplacian_matrix will return a scipy.sparse array instead of a matrix in Networkx 3.0.
+/home/steve.azzolin/DiGress_fork/src/analysis/visualization.py:182: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+Visualizing chains...
+1/20 complete2/20 complete3/20 complete4/20 complete5/20 complete6/20 complete7/20 complete8/20 complete9/20 complete10/20 complete11/20 complete12/20 complete13/20 complete14/20 complete15/20 complete16/20 complete17/20 complete18/20 complete19/20 complete20/20 complete
+Visualizing molecules...
+Done.
+Saving the generated graphs in /home/steve.azzolin/DiGress_fork/graphs/planar_resume
+Generated graphs Saved. Computing sampling metrics...
+Computing sampling metrics between 40 generated graphs and 80 test graphs -- emd computation: False
+Building networkx graphs...
+Computing degree stats..
+Computing spectre stats...
+Computing clustering stats...
+Computing orbit stats...
+Computing planar accuracy...
+Computing all fractions...
+Sampling statistics {'spectre': 0.007940874918217045, 'clustering': 0.040513870277227415, 'orbit': 0.0032030199160157924, 'planar_acc': 0.725, 'sampling/frac_unique': 1.0, 'sampling/frac_unique_non_iso': 1.0, 'sampling/frac_unic_non_iso_valid': 0.725, 'sampling/frac_non_iso': 1.0}
+Done testing.
+DONE
+Execution lasted 4 minutes
