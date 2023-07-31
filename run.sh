@@ -3,9 +3,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=12
 #SBATCH --job-name=digress
-#SBATCH -t 6:00:00
-#SBATCH --output=/home/steve.azzolin/DiGress_fork/sbatch_outputs/sbm_bigger.txt
-#SBATCH --error=/home/steve.azzolin/DiGress_fork/sbatch_outputs/sbm_bigger.txt
+#SBATCH -t 2-00:00
+#SBATCH --output=/home/steve.azzolin/DiGress_fork/sbatch_outputs/planar_fullprec.txt
+#SBATCH --error=/home/steve.azzolin/DiGress_fork/sbatch_outputs/planar_fullprec.txt
 #SBATCH --ntasks=1
 #SBATCH -N 1
 #SBATCH --mail-user=steve.azzolin@unitn.it
@@ -14,8 +14,6 @@
 
 start=`date +%s`
 
-
-# TODO: enabled wandb when required + generate more graph without TF32
 
 set -e
 export PATH="/nfs/data_chaos/sazzolin/miniconda3/bin:$PATH"
@@ -26,12 +24,12 @@ eval "$(conda shell.bash hook)"
 conda activate digress
 wandb login
 
-DATASET=sbm
-BIGGER=200
+DATASET=planar
+BIGGER=0
 python src/main.py \
     dataset=${DATASET} \
     general.test_only=/home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_${DATASET}.ckpt \
-    general.name=${DATASET}_${BIGGER} \
+    general.name=${DATASET}_${BIGGER}_fullprec \
     general.sample_bigger_graphs=${BIGGER}
 
 
