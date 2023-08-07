@@ -1,6 +1,7 @@
 import os
 import pathlib
 import random
+import numpy as np
 
 import torch
 from torch.utils.data import random_split
@@ -30,6 +31,52 @@ class GridDataset(Dataset):
                     self.adjs.append(adj)
                     self.n_nodes.append(len(G.nodes()))
             self.n_max = (grid_end - 1) * (grid_end - 1)
+            print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
+
+        # splits
+        random.seed(42)
+        graphs_len = len(self.adjs)
+        idxs = list(range(graphs_len))
+        random.shuffle(idxs)
+        self.test_idxs = idxs[int(0.8 * graphs_len):]
+        self.val_idxs = idxs[0:int(0.2*graphs_len)]
+        self.train_idxs = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
+
+    def __len__(self):
+        return len(self.adjs)
+
+    def __getitem__(self, idx):
+        if self.same_sample:
+            idx = self.__len__() - 1
+        graph = {}
+        graph["n_nodes"] = self.n_nodes[idx]
+        size_diff = self.n_max - graph["n_nodes"]
+        graph["adj"] = F.pad(self.adjs[idx], [0, size_diff, 0, size_diff])
+        return graph
+    
+
+class EgoDataset(Dataset):
+    def __init__(self, size, same_sample=False):
+        assert size in ["small", "large"]
+        filename = f'data/ego/ego_{size}.npy'
+
+        if os.path.isfile(filename):
+            assert False
+        else:
+            self.adjs = []
+            self.n_nodes = []
+            self.same_sample = same_sample
+            
+            graphs = np.load(filename)
+            assert len(graphs) > 50
+            print("Avg num nodes Ego", np.mean([len(g.nodes()) for g in graphs]))
+            
+            for adj in graphs:                
+                adj = torch.from_numpy(adj).float()
+                self.adjs.append(adj)
+                self.n_nodes.append(adj.shape[0])
+            self.n_max = (max(self.n_nodes) - 1) * (max(self.n_nodes) - 1)
+            print("Total num nodes/Avg num  = ", sum(self.n_nodes), np.mean(self.n_nodes))
             print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
 
         # splits
@@ -85,10 +132,25 @@ class SpectreGraphDataset(InMemoryDataset):
             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/community_12_21_100.pt'
         elif self.dataset_name == 'grid':
             print("Using Grid dataset")
+        elif self.dataset_name == 'ego':
+            print("Using Ego dataset")
         else:
             raise ValueError(f'Unknown dataset {self.dataset_name}')
 
-        if self.dataset_name != 'grid':
+        
+        if self.dataset_name == 'grid':            
+            G = GridDataset()
+            adjs = [G[i]["adj"] for i in range(len(G))]
+            self.train_indices = G.train_idxs
+            self.val_indices = G.val_idxs
+            self.test_indices = G.test_idxs
+        elif self.dataset_name == 'ego': 
+            G = EgoDataset(size="small")
+            adjs = [G[i]["adj"] for i in range(len(G))]
+            self.train_indices = G.train_idxs
+            self.val_indices = G.val_idxs
+            self.test_indices = G.test_idxs
+        else:
             file_path = download_url(raw_url, self.raw_dir)
             adjs, eigvals, eigvecs, n_nodes, max_eigval, min_eigval, same_sample, n_max = torch.load(file_path)
             
@@ -100,12 +162,6 @@ class SpectreGraphDataset(InMemoryDataset):
             self.test_indices = idxs[int(0.8 * graphs_len):]
             self.val_indices = idxs[0:int(0.2*graphs_len)]
             self.train_indices = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
-        else:
-            G = GridDataset()
-            adjs = [G[i]["adj"] for i in range(len(G))]
-            self.train_indices = G.train_idxs
-            self.val_indices = G.val_idxs
-            self.test_indices = G.test_idxs
 
         # g_cpu = torch.Generator()
         # g_cpu.manual_seed(0)

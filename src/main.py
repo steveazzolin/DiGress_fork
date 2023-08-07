@@ -10,6 +10,7 @@ from omegaconf import DictConfig
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
+from pytorch_lightning.plugins.environments import SLURMEnvironment
 
 from src import utils
 from metrics.abstract_metrics import TrainAbstractMetricsDiscrete, TrainAbstractMetrics
@@ -73,7 +74,7 @@ def main(cfg: DictConfig):
 
     if dataset_config["name"] in ['sbm', 'comm-20', 'planar', "grid"]:
         from datasets.spectre_dataset import SpectreGraphDataModule, SpectreDatasetInfos
-        from analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics, GridSamplingMetrics
+        from analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics, GridSamplingMetrics, EgoSamplingMetrics
         from analysis.visualization import NonMolecularVisualization
 
         datamodule = SpectreGraphDataModule(cfg)
@@ -81,6 +82,8 @@ def main(cfg: DictConfig):
             sampling_metrics = SBMSamplingMetrics(datamodule)
         elif dataset_config['name'] == 'grid':
             sampling_metrics = GridSamplingMetrics(datamodule)
+        elif dataset_config['name'] == 'ego':
+            sampling_metrics = EgoSamplingMetrics(datamodule)
         elif dataset_config['name'] == 'comm-20':
             sampling_metrics = Comm20SamplingMetrics(datamodule)
         else:
@@ -201,7 +204,8 @@ def main(cfg: DictConfig):
                       enable_progress_bar=False,
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
-                      logger = [])
+                      logger = [],
+                      plugins=SLURMEnvironment(auto_requeue=False))
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
