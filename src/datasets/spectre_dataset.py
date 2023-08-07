@@ -1,12 +1,58 @@
 import os
 import pathlib
+import random
 
 import torch
 from torch.utils.data import random_split
 import torch_geometric.utils
 from torch_geometric.data import InMemoryDataset, download_url
+from torch.utils.data import Dataset
+import networkx as nx
 
 from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInfos
+
+class GridDataset(Dataset):
+    def __init__(self, grid_start=10, grid_end=20, same_sample=False):
+        filename = f'data/grids_{grid_start}_{grid_end}{"_same_sample" if same_sample else ""}.pt'
+
+        if os.path.isfile(filename):
+            assert False
+            self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max = torch.load(filename)
+            print(f'Dataset {filename} loaded from file')
+        else:
+            self.adjs = []
+            self.n_nodes = []
+            self.same_sample = same_sample
+            for i in range(grid_start, grid_end):
+                for j in range(grid_start, grid_end):
+                    G = nx.grid_2d_graph(i, j)
+                    adj = torch.from_numpy(nx.adjacency_matrix(G).toarray()).float()
+                    self.adjs.append(adj)
+                    self.n_nodes.append(len(G.nodes()))
+            self.n_max = (grid_end - 1) * (grid_end - 1)
+            # torch.save([self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max], filename)
+            print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
+
+        # splits
+        random.seed(42)
+        graphs_len = len(self.adjs)
+        idxs = list(range(graphs_len))
+        random.shuffle(idxs)
+        self.test_idxs = idxs[int(0.8 * graphs_len):]
+        self.val_idxs = idxs[0:int(0.2*graphs_len)]
+        self.train_idxs = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
+
+    def __len__(self):
+        return len(self.adjs)
+
+    def __getitem__(self, idx):
+        if self.same_sample:
+            idx = self.__len__() - 1
+        graph = {}
+        graph["n_nodes"] = self.n_nodes[idx]
+        size_diff = self.n_max - graph["n_nodes"]
+        graph["adj"] = F.pad(self.adjs[idx], [0, size_diff, 0, size_diff])
+        return graph
 
 
 class SpectreGraphDataset(InMemoryDataset):
@@ -38,34 +84,53 @@ class SpectreGraphDataset(InMemoryDataset):
             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/planar_64_200.pt'
         elif self.dataset_name == 'comm20':
             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/community_12_21_100.pt'
+        elif self.dataset_name == 'grid':
+            pass
         else:
             raise ValueError(f'Unknown dataset {self.dataset_name}')
-        file_path = download_url(raw_url, self.raw_dir)
 
-        adjs, eigvals, eigvecs, n_nodes, max_eigval, min_eigval, same_sample, n_max = torch.load(file_path)
+        if self.dataset_name != 'grid':
+            file_path = download_url(raw_url, self.raw_dir)
+            adjs, eigvals, eigvecs, n_nodes, max_eigval, min_eigval, same_sample, n_max = torch.load(file_path)
 
-        g_cpu = torch.Generator()
-        g_cpu.manual_seed(0)
+            # splits
+            random.seed(42)
+            graphs_len = len(self.adjs)
+            idxs = list(range(graphs_len))
+            random.shuffle(idxs)
+            self.test_indices = idxs[int(0.8 * graphs_len):]
+            self.val_indices = idxs[0:int(0.2*graphs_len)]
+            self.train_indices = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
+        else:
+            G = GridDataset()
+            adjs = [G[i]["adj"].numpy() for i in range(len(G))]
+            self.train_indices = G.train_idxs
+            self.val_indices = G.val_idxs
+            self.test_indices = G.test_idxs
 
-        test_len = int(round(self.num_graphs * 0.2))
-        train_len = int(round((self.num_graphs - test_len) * 0.8))
-        val_len = self.num_graphs - train_len - test_len
-        indices = torch.randperm(self.num_graphs, generator=g_cpu)
-        print(f'Dataset sizes: train {train_len}, val {val_len}, test {test_len}')
-        train_indices = indices[:train_len]
-        val_indices = indices[train_len:train_len + val_len]
-        test_indices = indices[train_len + val_len:]
+        # g_cpu = torch.Generator()
+        # g_cpu.manual_seed(0)
+        # test_len = int(round(self.num_graphs * 0.2))
+        # train_len = int(round((self.num_graphs - test_len) * 0.8))
+        # val_len = self.num_graphs - train_len - test_len
+        # indices = torch.randperm(self.num_graphs, generator=g_cpu)
+        # print(f'Dataset sizes: train {train_len}, val {val_len}, test {test_len}')
+        # train_indices = indices[:train_len]
+        # val_indices = indices[train_len:train_len + val_len]
+        # test_indices = indices[train_len + val_len:]
+        
+        print(f'Dataset sizes: train {len(self.train_indices)}, val {len(self.val_indices)}, test {len(self.test_indices)}')
 
         train_data = []
         val_data = []
         test_data = []
 
         for i, adj in enumerate(adjs):
-            if i in train_indices:
+            if i in self.train_indices:
                 train_data.append(adj)
-            elif i in val_indices:
+            elif i in self.val_indices:
                 val_data.append(adj)
-            elif i in test_indices:
+            elif i in self.test_indices:
                 test_data.append(adj)
             else:
                 raise ValueError(f'Index {i} not in any split')
