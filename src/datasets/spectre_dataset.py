@@ -11,6 +11,7 @@ import networkx as nx
 
 from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInfos
 
+
 class GridDataset(Dataset):
     def __init__(self, grid_start=10, grid_end=20, same_sample=False):
         filename = f'data/grids_{grid_start}_{grid_end}{"_same_sample" if same_sample else ""}.pt'
@@ -85,7 +86,7 @@ class SpectreGraphDataset(InMemoryDataset):
         elif self.dataset_name == 'comm20':
             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/community_12_21_100.pt'
         elif self.dataset_name == 'grid':
-            pass
+            print("Using Grid dataset")
         else:
             raise ValueError(f'Unknown dataset {self.dataset_name}')
 
@@ -118,13 +119,12 @@ class SpectreGraphDataset(InMemoryDataset):
         # train_indices = indices[:train_len]
         # val_indices = indices[train_len:train_len + val_len]
         # test_indices = indices[train_len + val_len:]
-        
+
         print(f'Dataset sizes: train {len(self.train_indices)}, val {len(self.val_indices)}, test {len(self.test_indices)}')
 
         train_data = []
         val_data = []
         test_data = []
-
         for i, adj in enumerate(adjs):
             if i in self.train_indices:
                 train_data.append(adj)
