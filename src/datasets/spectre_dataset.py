@@ -117,7 +117,7 @@ class SpectreGraphDataModule(AbstractDataModule):
                     'test': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
                                         split='test', root=root_path)}
         # print(f'Dataset sizes: train {train_len}, val {val_len}, test {test_len}')
-
+        self.datasets_steve = datasets
         super().__init__(cfg, datasets)
         self.inner = self.train_dataset
 

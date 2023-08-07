@@ -1,9 +1,11 @@
+import random
 import networkx as nx
 import numpy as np
 import argparse
 import os
+import pickle as pkl
 import pathlib
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset #, InMemoryDataset, download_url
 from torch_geometric.utils import to_networkx
 import torch.nn.functional as F
 import torch
@@ -19,7 +21,7 @@ from compute_metrics import get_orbit, get_clustering, get_degs, spectral_stats,
 
 from src.datasets.spectre_dataset import SpectreGraphDataset, SpectreGraphDataModule
 from src.analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics
-
+#from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInfos
 
 class SBMDataset(Dataset):
     def __init__(self, n_graphs, k, same_sample=False, SON=False, ignore_first_eigv=False, max_comm_size=40):
@@ -160,6 +162,158 @@ class PlanarDataset(Dataset):
         graph["eigvec"] = F.pad(eigvecs, [0, size_diff, 0, size_diff])
         graph["mask"] = F.pad(torch.ones_like(self.adjs[idx]), [0, size_diff, 0, size_diff]).long()
         return graph
+    
+
+
+
+
+# class SpectreGraphDataset(InMemoryDataset):
+#     def __init__(self, dataset_name, split, root, transform=None, pre_transform=None, pre_filter=None):
+#         self.sbm_file = 'sbm_200.pt'
+#         self.planar_file = 'planar_64_200.pt'
+#         self.comm20_file = 'community_12_21_100.pt'
+#         self.dataset_name = dataset_name
+#         self.split = split
+#         self.num_graphs = 200
+#         super().__init__(root, transform, pre_transform, pre_filter)
+#         self.data, self.slices = torch.load(self.processed_paths[0])
+
+#     @property
+#     def raw_file_names(self):
+#         return ['train.pt', 'val.pt', 'test.pt']
+
+#     @property
+#     def processed_file_names(self):
+#             return [self.split + '.pt']
+
+#     def download(self):
+#         """
+#         Download raw qm9 files. Taken from PyG QM9 class
+#         """
+#         if self.dataset_name == 'sbm':
+#             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/sbm_200.pt'
+#         elif self.dataset_name == 'planar':
+#             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/planar_64_200.pt'
+#         elif self.dataset_name == 'comm20':
+#             raw_url = 'https://raw.githubusercontent.com/KarolisMart/SPECTRE/main/data/community_12_21_100.pt'
+#         else:
+#             raise ValueError(f'Unknown dataset {self.dataset_name}')
+#         file_path = download_url(raw_url, self.raw_dir)
+
+#         adjs, eigvals, eigvecs, n_nodes, max_eigval, min_eigval, same_sample, n_max = torch.load(file_path)
+
+#         g_cpu = torch.Generator()
+#         g_cpu.manual_seed(0)
+
+#         test_len = int(round(self.num_graphs * 0.2))
+#         train_len = int(round((self.num_graphs - test_len) * 0.8))
+#         val_len = self.num_graphs - train_len - test_len
+#         indices = torch.randperm(self.num_graphs, generator=g_cpu)
+#         print(f'Dataset sizes: train {train_len}, val {val_len}, test {test_len}')
+#         train_indices = indices[:train_len]
+#         val_indices = indices[train_len:train_len + val_len]
+#         test_indices = indices[train_len + val_len:]
+
+#         train_data = []
+#         val_data = []
+#         test_data = []
+
+#         for i, adj in enumerate(adjs):
+#             if i in train_indices:
+#                 train_data.append(adj)
+#             elif i in val_indices:
+#                 val_data.append(adj)
+#             elif i in test_indices:
+#                 test_data.append(adj)
+#             else:
+#                 raise ValueError(f'Index {i} not in any split')
+
+#         torch.save(train_data, self.raw_paths[0])
+#         torch.save(val_data, self.raw_paths[1])
+#         torch.save(test_data, self.raw_paths[2])
+
+
+#     def process(self):
+#         file_idx = {'train': 0, 'val': 1, 'test': 2}
+#         raw_dataset = torch.load(self.raw_paths[file_idx[self.split]])
+
+#         data_list = []
+#         for adj in raw_dataset:
+#             n = adj.shape[-1]
+#             X = torch.ones(n, 1, dtype=torch.float)
+#             y = torch.zeros([1, 0]).float()
+#             edge_index, _ = torch_geometric.utils.dense_to_sparse(adj)
+#             edge_attr = torch.zeros(edge_index.shape[-1], 2, dtype=torch.float)
+#             edge_attr[:, 1] = 1
+#             num_nodes = n * torch.ones(1, dtype=torch.long)
+#             data = torch_geometric.data.Data(x=X, edge_index=edge_index, edge_attr=edge_attr,
+#                                              y=y, n_nodes=num_nodes)
+#             data_list.append(data)
+
+#             if self.pre_filter is not None and not self.pre_filter(data):
+#                 continue
+#             if self.pre_transform is not None:
+#                 data = self.pre_transform(data)
+
+#             data_list.append(data)
+#         torch.save(self.collate(data_list), self.processed_paths[0])
+
+
+
+# class SpectreGraphDataModule(AbstractDataModule):
+#     def __init__(self, cfg, n_graphs=200):
+#         self.cfg = cfg
+#         self.datadir = cfg.dataset.datadir
+#         base_path = pathlib.Path(os.path.realpath(__file__)).parents[2]
+#         root_path = os.path.join(base_path, self.datadir)
+
+
+#         datasets = {'train': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
+#                                                  split='train', root=root_path),
+#                     'val': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
+#                                         split='val', root=root_path),
+#                     'test': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
+#                                         split='test', root=root_path)}
+#         # print(f'Dataset sizes: train {train_len}, val {val_len}, test {test_len}')
+#         self.datasets_steve = datasets
+#         super().__init__(cfg, datasets)
+#         self.inner = self.train_dataset
+
+#     def __getitem__(self, item):
+#         return self.inner[item]
+
+
+# class SpectreDatasetInfos(AbstractDatasetInfos):
+#     def __init__(self, datamodule, dataset_config):
+#         self.datamodule = datamodule
+#         self.name = 'nx_graphs'
+#         self.n_nodes = self.datamodule.node_counts()
+#         self.node_types = torch.tensor([1])               # There are no node types
+#         self.edge_types = self.datamodule.edge_counts()
+#         super().complete_infos(self.n_nodes, self.node_types)
+
+# class SBMDataModule(AbstractDataModule):
+#     def __init__(self, cfg, n_graphs=200):
+#         self.cfg = cfg
+#         self.datadir = cfg.dataset.datadir
+#         base_path = pathlib.Path(os.path.realpath(__file__)).parents[2]
+#         root_path = os.path.join(base_path, self.datadir)
+
+
+#         datasets = {'train': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
+#                                                  split='train', root=root_path),
+#                     'val': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
+#                                         split='val', root=root_path),
+#                     'test': SpectreGraphDataset(dataset_name=self.cfg.dataset.name,
+#                                         split='test', root=root_path)}
+#         # print(f'Dataset sizes: train {train_len}, val {val_len}, test {test_len}')
+
+#         super().__init__(cfg, datasets)
+#         self.inner = self.train_dataset
+
+#     def __getitem__(self, item):
+#         return self.inner[item]
+
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -186,7 +340,7 @@ def get_dataset_dir(name):
     return os.path.join(base_path, datadir)
 
 def get_reference_graphs(name, path):
-    if "false" in path or "0" in path: # size sampled from train distrib
+    if name in ["sbm", "planar"]:
         # config = dotdict({
         #     "dataset": dotdict({
         #         "name": name,
@@ -199,6 +353,9 @@ def get_reference_graphs(name, path):
         #         "num_workers": 0
         #     })
         # })
+        # dataloaders = SpectreGraphDataModule(config)
+        # test_reference_graphs = loader_to_nx(dataloaders.datasets_steve["test"])
+        # train_reference_graphs = loader_to_nx(dataloaders.datasets_steve["train"])
         config = dotdict({
             "dataset": dotdict({
                 "name": name,
@@ -259,54 +416,80 @@ def get_reference_graphs(name, path):
             digress_metric = SBMSamplingMetrics(dataloaders)
         test_reference_graphs = digress_metric.test_graphs
         train_reference_graphs = digress_metric.train_graphs
-        # test_reference_graphs = loader_to_nx(dataloaders.datasets_steve["test"])
-        # train_reference_graphs = loader_to_nx(dataloaders.datasets_steve["train"])
-    elif "true" in path: # graphs made bigger, so need to generate new bigger samples
-        if "planar" in name:
-            G = PlanarDataset(n_nodes=64 + 200, n_graphs=80, k=2)
-            test_reference_graphs = [nx.from_numpy_matrix(G[i]["adj"].numpy()) for i in range(len(G))]
-            train_reference_graphs = [nx.from_numpy_matrix(G[i]["adj"].numpy()) for i in range(len(G))]
-        elif "sbm" in name:
-            G = SBMDataset(5, k=4, max_comm_size=100)
-            exit(1)
+    elif name == "grid":
+        graphs = []
+        for i in range(10, 20):
+            for j in range(10, 20):
+                graphs.append(nx.grid_2d_graph(i, j))
+        random.seed(123)
+        random.shuffle(graphs)
+        graphs_len = len(graphs)
+        test_reference_graphs = graphs[int(0.8 * graphs_len):]
+        train_reference_graphs = graphs[0:int(0.8*graphs_len)]
     return test_reference_graphs, train_reference_graphs
+    # if "planar" in name:
+    #     G = PlanarDataset(n_nodes=64 + 0, n_graphs=80, k=2)
+    #     test_reference_graphs = [nx.from_numpy_matrix(G[i]["adj"].numpy()) for i in range(len(G))]
+    #     train_reference_graphs = [nx.from_numpy_matrix(G[i]["adj"].numpy()) for i in range(len(G))]
+    # elif "sbm" in name:
+    #     G = SBMDataset(200, k=4, max_comm_size=100)
+    #     test_reference_graphs = [nx.convert_matrix.from_numpy_matrix(G[i]["adj"].numpy()) for i in range(len(G))]
+    #     train_reference_graphs = [nx.convert_matrix.from_numpy_matrix(G[i]["adj"].numpy()) for i in range(len(G))]
+    # return train_reference_graphs, test_reference_graphs
+
+
+def pick_connected_component_new(G):
+    adj_list = list(map(list, iter(G.adj.values())))
+    for id,adj in enumerate(adj_list):
+        id_min = min(adj)
+        if id<id_min and id>=1:
+            break
+    node_list = list(range(id)) # only include node prior than node "id"
+
+    G = G.subgraph(node_list)
+    G = max((G.subgraph(c) for c in nx.connected_components(G)), key=len)
+    return G
 
 def main(args):
-    generated = np.load(f"{args.path}/generated_adjs.npz")
-    print(f"Found {len(generated)} generated graphs")
-    print("Shape first generated graph: ", generated["arr_0"].shape)
+    with open(args.path, "rb") as f:
+        generated = pkl.load(f)
 
-    # convert to NetworkX
-    generated = [nx.from_numpy_array(generated[f"arr_{id}"]) for id in range(len(generated))]
+    print(f"Found {len(generated)} generated graphs")
+    print("Shape first generated graph: ", len(generated[0].nodes()))
+
     reference, train = get_reference_graphs(args.dataset_name, args.path) #[:len(generated)]
     print(f"Found {len(reference)} reference graphs")
     print("Shape first generated graph: ", len(reference[0].nodes()))
     print()
 
+    c = 0
+    for g in generated:
+        if len(g.nodes()) == 0:
+            c += 1
+    print("Graph w/o nodes", c)
+    generated = [g for g in generated if len(g.nodes()) > 0]
+    print(len(generated))
 
     # evaluate metrics
+    s1 = get_degs(reference)
+    s2 = get_degs(generated)
+    degs = mmd_digress.compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False)
+    print("Degree stat: ", degs)
+
     s1 = get_orbit(reference)
     s2 = get_orbit(generated)
-    orbit = compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, is_hist=False, sigma=30.0)
+    orbit = mmd_digress.compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, is_hist=False, sigma=30.0)
     print("Orbit stat: ", orbit)
 
     s1 = get_clustering(reference)
     s2 = get_clustering(generated)
-    clust = compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, sigma=1.0 / 10)
+    clust = mmd_digress.compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, sigma=1.0 / 10)
     print("Clustering stat: ", clust)
 
-    s1 = get_degs(reference)
-    s2 = get_degs(generated)
-    degs = compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False)
-    print("Degree stat: ", degs)
-
-
-    spectre = spectral_stats(reference, generated, is_parallel=False, n_eigvals=-1,
-                            compute_emd=False)
+    spectre = spectral_stats(reference, generated, is_parallel=False, n_eigvals=-1, compute_emd=False)
     print("Spectre stat: ", spectre)
 
-    motif = motif_stats(reference, generated, motif_type='4cycle', ground_truth_match=None, 
-                        bins=100, compute_emd=False)
+    motif = motif_stats(reference, generated, motif_type='4cycle', ground_truth_match=None, bins=100, compute_emd=False)
     print("Motif stat: ", motif)
 
     # frac_unique, frac_unique_non_isomorphic, fraction_unique_non_isomorphic_valid = eval_fraction_unique_non_isomorphic_valid(
@@ -339,68 +522,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_name', type=str, required=True)  
-    parser.add_argument('--path', type=str, required=True, help="path to generated graphs")  
+    parser.add_argument('--path', type=str, required=True, help="path to generated graphs")
     args = parser.parse_args()
     main(args)
-
-
-
-
-
-# EVALUATE WITH DIGRESS
-# config = dotdict({
-#         "dataset": dotdict({
-#             "name": "planar",
-#             "datadir": get_dataset_dir("planar"),
-#             'remove_h': None,
-#         }),
-#         "general": dotdict({
-#             'name': 'planar_metric_debug',
-#             'wandb': 'offline',
-#             'gpus': 1,
-#             'resume': None,
-#             'test_only': '/home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_planar.ckpt',
-#             'sample_bigger_graphs': 0,
-#             'check_val_every_n_epochs': 5,
-#             'sample_every_val': 4,
-#             'val_check_interval': None,
-#             'samples_to_generate': 512,
-#             'samples_to_save': 20,
-#             'chains_to_save': 1,
-#             'log_every_steps': 50,
-#             'number_chain_steps': 50,
-#             'final_model_samples_to_generate': 10000,
-#             'final_model_samples_to_save': 30,
-#             'final_model_chains_to_save': 20,
-#             'evaluate_all_checkpoints': False
-#         }),
-#         "train": dotdict({
-#             "num_workers": 0,
-#             'n_epochs': 1000,
-#             'batch_size': 32,
-#             'lr': 0.0002,
-#             'clip_grad': None,
-#             'save_model': True,
-#             'num_workers': 0,
-#             'ema_decay': 0,
-#             'progress_bar': False,
-#             'weight_decay': 1e-12,
-#             'optimizer': 'adamw',
-#             'seed': 0
-#         }),
-#         'model': dotdict({
-#             'type': 'discrete',
-#             'transition': 'marginal',
-#             'model': 'graph_tf',
-#             'diffusion_steps': 500,
-#             'diffusion_noise_schedule': 'cosine',
-#             'n_layers': 5,
-#             'extra_features': 'all',
-#             'hidden_mlp_dims': {'X': 256, 'E': 128, 'y': 128},
-#             'hidden_dims': {'dx': 256, 'de': 64, 'dy': 64, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 128, 'dim_ffy': 128},
-#             'lambda_train': [5, 0]
-#         }),
-#     })
-# dataloaders = SpectreGraphDataModule(config)
-# digress_metric = PlanarSamplingMetrics(dataloaders)
-# digress_metric(generated, save=False, name=None, current_epoch=None, val_counter=None, local_rank=0, path="/cancella//")

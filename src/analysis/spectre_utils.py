@@ -848,29 +848,37 @@ class SpectreSamplingMetrics(nn.Module):
                                                    remove_self_loops=True))
         return networkx_graphs
 
-    def forward(self, generated_graphs: list, name, current_epoch, val_counter, local_rank, test=False, path=""):
+    def forward(self, generated_graphs: list, name, current_epoch, val_counter, local_rank, test=False, path="", save=True):
         if local_rank == 0:
             print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
                   f" test graphs -- emd computation: {self.compute_emd}")
         networkx_graphs = []
         adjacency_matrices = []
-        if local_rank == 0:
-            print("Building networkx graphs...")
-        for graph in generated_graphs:
-            node_types, edge_types = graph
-            A = edge_types.bool().cpu().numpy()
-            adjacency_matrices.append(A)
+        to_log = {}
 
-            nx_graph = nx.from_numpy_array(A)
-            networkx_graphs.append(nx_graph)
+        if not type(generated_graphs[0]) is nx.Graph:
+            if local_rank == 0:
+                print("Building networkx graphs...")
+            for graph in generated_graphs:
+                node_types, edge_types = graph
+                A = edge_types.bool().cpu().numpy()
+                adjacency_matrices.append(A)
 
-        np.savez(f'{path}generated_adjs.npz', *adjacency_matrices)
+                nx_graph = nx.from_numpy_array(A)
+                networkx_graphs.append(nx_graph)
+        else:
+            networkx_graphs = generated_graphs
+
+        if save:
+            np.savez(f'{path}generated_adjs.npz', *adjacency_matrices)
 
         if 'degree' in self.metrics_list:
             if local_rank == 0:
                 print("Computing degree stats..")
+                print("Num test graphs: ", len(self.test_graphs))
             degree = degree_stats(self.test_graphs, networkx_graphs, is_parallel=True,
                                   compute_emd=self.compute_emd)
+            to_log['degree'] = degree
             if wandb.run:
                 wandb.run.summary['degree'] = degree
 
@@ -880,7 +888,6 @@ class SpectreSamplingMetrics(nn.Module):
         # eigval_stats(eig_ref_list, eig_pred_list, max_eig=20, is_parallel=True, compute_emd=False)
         # spectral_filter_stats(eigvec_ref_list, eigval_ref_list, eigvec_pred_list, eigval_pred_list, is_parallel=False,
         #                       compute_emd=False)          # This is the one called wavelet
-        to_log = {}
 
         if 'spectre' in self.metrics_list:
             if local_rank == 0:
