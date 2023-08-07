@@ -18,8 +18,6 @@ class GridDataset(Dataset):
 
         if os.path.isfile(filename):
             assert False
-            self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max = torch.load(filename)
-            print(f'Dataset {filename} loaded from file')
         else:
             self.adjs = []
             self.n_nodes = []
@@ -31,7 +29,6 @@ class GridDataset(Dataset):
                     self.adjs.append(adj)
                     self.n_nodes.append(len(G.nodes()))
             self.n_max = (grid_end - 1) * (grid_end - 1)
-            # torch.save([self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max], filename)
             print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
 
         # splits
