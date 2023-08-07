@@ -4,6 +4,7 @@ import random
 
 import torch
 from torch.utils.data import random_split
+import torch.nn.functional as F
 import torch_geometric.utils
 from torch_geometric.data import InMemoryDataset, download_url
 from torch.utils.data import Dataset
@@ -90,7 +91,7 @@ class SpectreGraphDataset(InMemoryDataset):
         if self.dataset_name != 'grid':
             file_path = download_url(raw_url, self.raw_dir)
             adjs, eigvals, eigvecs, n_nodes, max_eigval, min_eigval, same_sample, n_max = torch.load(file_path)
-
+            
             # splits
             random.seed(42)
             graphs_len = len(self.adjs)
@@ -101,7 +102,7 @@ class SpectreGraphDataset(InMemoryDataset):
             self.train_indices = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
         else:
             G = GridDataset()
-            adjs = [G[i]["adj"].numpy() for i in range(len(G))]
+            adjs = [G[i]["adj"] for i in range(len(G))]
             self.train_indices = G.train_idxs
             self.val_indices = G.val_idxs
             self.test_indices = G.test_idxs
@@ -139,6 +140,7 @@ class SpectreGraphDataset(InMemoryDataset):
 
     def process(self):
         file_idx = {'train': 0, 'val': 1, 'test': 2}
+        print(self.raw_paths[file_idx[self.split]])
         raw_dataset = torch.load(self.raw_paths[file_idx[self.split]])
 
         data_list = []

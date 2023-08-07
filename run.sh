@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task=12
 #SBATCH --job-name=digress
 #SBATCH -t 2-00:00
-#SBATCH --output=/home/steve.azzolin/DiGress_fork/sbatch_outputs/planar_fullprec.txt
-#SBATCH --error=/home/steve.azzolin/DiGress_fork/sbatch_outputs/planar_fullprec.txt
+#SBATCH --output=/home/steve.azzolin/DiGress_fork/sbatch_outputs/grid_fullprec.txt
+#SBATCH --error=/home/steve.azzolin/DiGress_fork/sbatch_outputs/grid_fullprec.txt
 #SBATCH --ntasks=1
 #SBATCH -N 1
 #SBATCH --mail-user=steve.azzolin@unitn.it
@@ -21,17 +21,17 @@ export WANDB_CONFIG_DIR=/home/steve.azzolin/wandb
 export WANDB_API_KEY=2cad8a8279143c69ce071f54bf37c1f5a5f4e5ff
 export HYDRA_FULL_ERROR=1
 eval "$(conda shell.bash hook)"
-conda activate digress
+conda deactivate
+conda activate digress_ligh2.0.4
 wandb login
 
-DATASET=planar
+DATASET=grid
 BIGGER=0
 python src/main.py \
     dataset=${DATASET} \
-    general.test_only=/home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_${DATASET}.ckpt \
     general.name=${DATASET}_${BIGGER}_fullprec \
     general.sample_bigger_graphs=${BIGGER}
-
+#     general.test_only=/home/steve.azzolin/DiGress_fork/checkpoints/checkpoint_${DATASET}.ckpt \
 
 echo DONE
 end=`date +%s`
