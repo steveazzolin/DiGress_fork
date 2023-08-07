@@ -71,14 +71,16 @@ def main(cfg: DictConfig):
     print(cfg)
     dataset_config = cfg["dataset"]
 
-    if dataset_config["name"] in ['sbm', 'comm-20', 'planar']:
+    if dataset_config["name"] in ['sbm', 'comm-20', 'planar', "grid"]:
         from datasets.spectre_dataset import SpectreGraphDataModule, SpectreDatasetInfos
-        from analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics
+        from analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics, GridSamplingMetrics
         from analysis.visualization import NonMolecularVisualization
 
         datamodule = SpectreGraphDataModule(cfg)
         if dataset_config['name'] == 'sbm':
             sampling_metrics = SBMSamplingMetrics(datamodule)
+        elif dataset_config['name'] == 'grid':
+            sampling_metrics = GridSamplingMetrics(datamodule)
         elif dataset_config['name'] == 'comm-20':
             sampling_metrics = Comm20SamplingMetrics(datamodule)
         else:
