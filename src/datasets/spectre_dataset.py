@@ -58,26 +58,23 @@ class GridDataset(Dataset):
 class EgoDataset(Dataset):
     def __init__(self, size, same_sample=False):
         assert size in ["small", "large"]
-        filename = f'data/ego/ego_{size}.npy'
+        filename = f'/home/azzolin/DiGress_fork/data/ego/ego_{size}.npy'
+        
+        self.adjs = []
+        self.n_nodes = []
+        self.same_sample = same_sample
 
-        if os.path.isfile(filename):
-            assert False
-        else:
-            self.adjs = []
-            self.n_nodes = []
-            self.same_sample = same_sample
-            
-            graphs = np.load(filename)
-            assert len(graphs) > 50
-            print("Avg num nodes Ego", np.mean([len(g.nodes()) for g in graphs]))
-            
-            for adj in graphs:                
-                adj = torch.from_numpy(adj).float()
-                self.adjs.append(adj)
-                self.n_nodes.append(adj.shape[0])
-            self.n_max = (max(self.n_nodes) - 1) * (max(self.n_nodes) - 1)
-            print("Total num nodes/Avg num  = ", sum(self.n_nodes), np.mean(self.n_nodes))
-            print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
+        graphs = np.load(filename, allow_pickle=True)
+        assert len(graphs) > 50
+        print("Avg num nodes Ego", np.mean([g.shape[0] for g in graphs]))
+
+        for adj in graphs:                
+            adj = torch.from_numpy(adj).float()
+            self.adjs.append(adj)
+            self.n_nodes.append(adj.shape[0])
+        self.n_max = (max(self.n_nodes) - 1) * (max(self.n_nodes) - 1)
+        print("Total num nodes/Avg num  = ", sum(self.n_nodes), np.mean(self.n_nodes))
+        print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
 
         # splits
         random.seed(42)

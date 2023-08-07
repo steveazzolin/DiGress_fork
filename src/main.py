@@ -72,7 +72,7 @@ def main(cfg: DictConfig):
     print(cfg)
     dataset_config = cfg["dataset"]
 
-    if dataset_config["name"] in ['sbm', 'comm-20', 'planar', "grid"]:
+    if dataset_config["name"] in ['sbm', 'comm-20', 'planar', "grid", "ego"]:
         from datasets.spectre_dataset import SpectreGraphDataModule, SpectreDatasetInfos
         from analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics, GridSamplingMetrics, EgoSamplingMetrics
         from analysis.visualization import NonMolecularVisualization
