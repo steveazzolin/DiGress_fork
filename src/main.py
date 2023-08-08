@@ -19,7 +19,7 @@ from diffusion_model import LiftedDenoisingDiffusion
 from diffusion_model_discrete import DiscreteDenoisingDiffusion
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
 
-# torch.set_float32_matmul_precision("medium") # added by Steve
+torch.set_float32_matmul_precision("high") # added by Steve
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
 
@@ -91,7 +91,7 @@ def main(cfg: DictConfig):
 
         dataset_infos = SpectreDatasetInfos(datamodule, dataset_config)
         train_metrics = TrainAbstractMetricsDiscrete() if cfg.model.type == 'discrete' else TrainAbstractMetrics()
-        visualization_tools = NonMolecularVisualization()
+        visualization_tools = None #NonMolecularVisualization()
 
         if cfg.model.type == 'discrete' and cfg.model.extra_features is not None:
             extra_features = ExtraFeatures(cfg.model.extra_features, dataset_info=dataset_infos)

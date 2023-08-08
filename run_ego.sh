@@ -2,10 +2,11 @@
 #SBATCH -p long-disi
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=12
-#SBATCH --job-name=grid_small
+#SBATCH --mem=250G
+#SBATCH --job-name=dig_ego
 #SBATCH -t 2-00:00
-#SBATCH --output=/home/steve.azzolin/DiGress_fork/sbatch_outputs/grid_smaller.txt
-#SBATCH --error=/home/steve.azzolin/DiGress_fork/sbatch_outputs/grid_smaller.txt
+#SBATCH --output=/home/steve.azzolin/DiGress_fork/sbatch_outputs/ego.txt
+#SBATCH --error=/home/steve.azzolin/DiGress_fork/sbatch_outputs/ego.txt
 #SBATCH --ntasks=1
 #SBATCH -N 1
 #SBATCH --mail-user=steve.azzolin@unitn.it
@@ -26,21 +27,19 @@ conda activate digress_ligh2.0.4
 wandb login
 wandb disabled
 
-DATASET=grid
+DATASET=ego
 BIGGER=0
 python src/main.py \
     dataset=${DATASET} \
-    general.name=${DATASET}_smaller_${BIGGER}_fullprec \
+    general.name=${DATASET}_${BIGGER} \
     general.sample_bigger_graphs=${BIGGER} \
-    model.n_layers=4 \
-    model.hidden_mlp_dims.X=16 \
-    model.hidden_mlp_dims.E=16 \
-    model.hidden_mlp_dims.y=16 \
-    model.hidden_dims.dx=64 \
+    model.n_layers=5 \
+    model.hidden_mlp_dims.X=32 \
+    model.hidden_mlp_dims.E=32 \
+    model.hidden_mlp_dims.y=32 \
+    model.hidden_dims.dx=80 \
     model.hidden_dims.n_head=4 \
-    model.hidden_dims.dim_ffX=64 \
-    train.n_epochs=1000 \
-    train.batch_size=32
+    model.hidden_dims.dim_ffX=80
 
 #Note: Changed hyper-params just for Grid for OOM
 

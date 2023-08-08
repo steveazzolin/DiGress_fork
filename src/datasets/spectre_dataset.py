@@ -15,7 +15,7 @@ from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInf
 
 
 class GridDataset(Dataset):
-    def __init__(self, grid_start=10, grid_end=20, same_sample=False):
+    def __init__(self, grid_start=10, grid_end=15, same_sample=False):
         filename = f'data/grids_{grid_start}_{grid_end}{"_same_sample" if same_sample else ""}.pt'
 
         if os.path.isfile(filename):
@@ -58,22 +58,23 @@ class GridDataset(Dataset):
 class EgoDataset(Dataset):
     def __init__(self, size, same_sample=False):
         assert size in ["small", "large"]
-        filename = f'/home/azzolin/DiGress_fork/data/ego/ego_{size}.npy'
+        filename = f'/home/steve.azzolin/DiGress_fork/data/ego/ego_{size}.npy' # TODO: fix this
         
         self.adjs = []
         self.n_nodes = []
         self.same_sample = same_sample
 
         graphs = np.load(filename, allow_pickle=True)
-        assert len(graphs) > 50
         print("Avg num nodes Ego", np.mean([g.shape[0] for g in graphs]))
 
-        for adj in graphs:                
+        for adj in graphs[:]:             
+            print(adj.shape)   
             adj = torch.from_numpy(adj).float()
             self.adjs.append(adj)
             self.n_nodes.append(adj.shape[0])
-        self.n_max = (max(self.n_nodes) - 1) * (max(self.n_nodes) - 1)
-        print("Total num nodes/Avg num  = ", sum(self.n_nodes), np.mean(self.n_nodes))
+        # self.n_max = (max(self.n_nodes) - 1) * (max(self.n_nodes) - 1)
+        self.n_max = max(self.n_nodes)
+        print("Total num nodes/Avg num  = ", sum(self.n_nodes), max(self.n_nodes), np.mean(self.n_nodes))
         print(f'Dataset {filename} saved with {len(self.adjs)} graphs')
 
         # splits
@@ -84,6 +85,7 @@ class EgoDataset(Dataset):
         self.test_idxs = idxs[int(0.8 * graphs_len):]
         self.val_idxs = idxs[0:int(0.2*graphs_len)]
         self.train_idxs = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
+        del graphs
 
     def __len__(self):
         return len(self.adjs)
@@ -153,7 +155,7 @@ class SpectreGraphDataset(InMemoryDataset):
             
             # splits
             random.seed(42)
-            graphs_len = len(self.adjs)
+            graphs_len = len(adjs)
             idxs = list(range(graphs_len))
             random.shuffle(idxs)
             self.test_indices = idxs[int(0.8 * graphs_len):]

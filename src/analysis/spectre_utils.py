@@ -849,8 +849,8 @@ class SpectreSamplingMetrics(nn.Module):
         return networkx_graphs
 
     def forward(self, generated_graphs: list, name, current_epoch, val_counter, local_rank, test=False, path="", save=True):
-        if local_rank == 0:
-            print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
+        # if local_rank == 0:
+        print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
                   f" test graphs -- emd computation: {self.compute_emd}")
         networkx_graphs = []
         adjacency_matrices = []
@@ -952,8 +952,8 @@ class SpectreSamplingMetrics(nn.Module):
                            'sampling/frac_unic_non_iso_valid': fraction_unique_non_isomorphic_valid,
                            'sampling/frac_non_iso': frac_non_isomorphic})
 
-        if local_rank == 0:
-            print("Sampling statistics", to_log)
+        # if local_rank == 0:
+        print("Sampling statistics", to_log)
         if wandb.run:
             wandb.log(to_log, commit=False)
 
@@ -985,10 +985,10 @@ class GridSamplingMetrics(SpectreSamplingMetrics):
     def __init__(self, datamodule):
         super().__init__(datamodule=datamodule,
                          compute_emd=False,
-                         metrics_list=['degree', 'clustering', 'orbit', 'spectre', 'sbm'])
+                         metrics_list=['degree', 'clustering', 'orbit', 'spectre'])
         
 class EgoSamplingMetrics(SpectreSamplingMetrics):
     def __init__(self, datamodule):
         super().__init__(datamodule=datamodule,
                          compute_emd=False,
-                         metrics_list=['degree', 'clustering', 'orbit', 'spectre', 'sbm'])
+                         metrics_list=['degree', 'clustering', 'orbit', 'spectre'])
