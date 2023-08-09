@@ -853,7 +853,7 @@ class SpectreSamplingMetrics(nn.Module):
         # if local_rank == 0:
         print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
                   f" test graphs -- emd computation: {self.compute_emd}")
-        sys.stdout.flush()
+        print("Computing: ", self.metrics_list)
         networkx_graphs = []
         adjacency_matrices = []
         to_log = {}
@@ -875,9 +875,9 @@ class SpectreSamplingMetrics(nn.Module):
             np.savez(f'{path}generated_adjs.npz', *adjacency_matrices)
 
         if 'degree' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing degree stats..")
-                print("Num test graphs: ", len(self.test_graphs))
+            # if local_rank == 0:
+            print("Computing degree stats..")
+            print("Num test graphs: ", len(self.test_graphs))
             degree = degree_stats(self.test_graphs, networkx_graphs, is_parallel=True,
                                   compute_emd=self.compute_emd)
             to_log['degree'] = degree
@@ -892,8 +892,8 @@ class SpectreSamplingMetrics(nn.Module):
         #                       compute_emd=False)          # This is the one called wavelet
 
         if 'spectre' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing spectre stats...")
+            # if local_rank == 0:
+            print("Computing spectre stats...")
             spectre = spectral_stats(self.test_graphs, networkx_graphs, is_parallel=True, n_eigvals=-1,
                                      compute_emd=self.compute_emd)
 
@@ -902,8 +902,8 @@ class SpectreSamplingMetrics(nn.Module):
               wandb.run.summary['spectre'] = spectre
 
         if 'clustering' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing clustering stats...")
+            # if local_rank == 0:
+            print("Computing clustering stats...")
             clustering = clustering_stats(self.test_graphs, networkx_graphs, bins=100, is_parallel=True,
                                           compute_emd=self.compute_emd)
             to_log['clustering'] = clustering
@@ -911,8 +911,8 @@ class SpectreSamplingMetrics(nn.Module):
                 wandb.run.summary['clustering'] = clustering
 
         if 'motif' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing motif stats")
+            # if local_rank == 0:
+            print("Computing motif stats")
             motif = motif_stats(self.test_graphs, networkx_graphs, motif_type='4cycle', ground_truth_match=None, bins=100,
                                 compute_emd=self.compute_emd)
             to_log['motif'] = motif
@@ -920,32 +920,33 @@ class SpectreSamplingMetrics(nn.Module):
                 wandb.run.summary['motif'] = motif
 
         if 'orbit' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing orbit stats...")
+            # if local_rank == 0:
+            print("Computing orbit stats...")
             orbit = orbit_stats_all(self.test_graphs, networkx_graphs, compute_emd=self.compute_emd)
             to_log['orbit'] = orbit
             if wandb.run:
                 wandb.run.summary['orbit'] = orbit
 
         if 'sbm' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing accuracy...")
+            # if local_rank == 0:
+            print("Computing accuracy...")
             acc = eval_acc_sbm_graph(networkx_graphs, refinement_steps=100, strict=True)
             to_log['sbm_acc'] = acc
             if wandb.run:
                 wandb.run.summary['sbmacc'] = acc
 
         if 'planar' in self.metrics_list:
-            if local_rank ==0:
-                print('Computing planar accuracy...')
+            # if local_rank ==0:
+            print('Computing planar accuracy...')
             planar_acc = eval_acc_planar_graph(networkx_graphs)
             to_log['planar_acc'] = planar_acc
             if wandb.run:
                 wandb.run.summary['planar_acc'] = planar_acc
 
-        if 'sbm' or 'planar' in self.metrics_list:
-            if local_rank == 0:
-                print("Computing all fractions...")
+        if 'sbm' in self.metrics_list or "planar" in self.metrics_list:
+            # if local_rank == 0:
+            print("Computing all fractions...")
+            sys.stdout.flush()
             frac_unique, frac_unique_non_isomorphic, fraction_unique_non_isomorphic_valid = eval_fraction_unique_non_isomorphic_valid(
                 networkx_graphs, self.train_graphs, is_sbm_graph if 'sbm' in self.metrics_list else is_planar_graph)
             frac_non_isomorphic = 1.0 - eval_fraction_isomorphic(networkx_graphs, self.train_graphs)
