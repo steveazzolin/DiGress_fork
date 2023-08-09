@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 import time
 import wandb
 import os
+import sys
 
 from models.transformer_model import GraphTransformer
 from diffusion.noise_schedule import DiscreteUniformTransition, PredefinedNoiseScheduleDiscrete,\
@@ -103,7 +104,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
     def training_step(self, data, i):
         if data.edge_index.numel() == 0:
-            self.print("Found a batch with no edges. Skipping.")
+            self.print("Found a batch with no edges. Skipping.", flush=True)
             return
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
         dense_data = dense_data.mask(node_mask)
@@ -126,12 +127,12 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
     def on_fit_start(self) -> None:
         self.train_iterations = len(self.trainer.datamodule.train_dataloader())
-        self.print("Size of the input features", self.Xdim, self.Edim, self.ydim)
+        self.print("Size of the input features", self.Xdim, self.Edim, self.ydim, flush=True)
         if self.local_rank == 0:
             utils.setup_wandb(self.cfg)
 
     def on_train_epoch_start(self) -> None:
-        self.print("Starting train epoch...")
+        self.print("Starting train epoch...", flush=True)
         self.start_epoch_time = time.time()
         self.train_loss.reset()
         self.train_metrics.reset()
@@ -141,9 +142,9 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         self.print(f"Epoch {self.current_epoch}: X_CE: {to_log['train_epoch/x_CE'] :.3f}"
                       f" -- E_CE: {to_log['train_epoch/E_CE'] :.3f} --"
                       f" y_CE: {to_log['train_epoch/y_CE'] :.3f}"
-                      f" -- {time.time() - self.start_epoch_time:.1f}s ")
+                      f" -- {time.time() - self.start_epoch_time:.1f}s ", flush=True)
         epoch_at_metrics, epoch_bond_metrics = self.train_metrics.log_epoch_metrics()
-        self.print(f"Epoch {self.current_epoch}: {epoch_at_metrics} -- {epoch_bond_metrics}")
+        self.print(f"Epoch {self.current_epoch}: {epoch_at_metrics} -- {epoch_bond_metrics}", flush=True)
         #print(torch.cuda.memory_summary())
 
     def on_validation_epoch_start(self) -> None:
@@ -155,12 +156,16 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         self.sampling_metrics.reset()
 
     def validation_step(self, data, i):
+        self.print("Validation step start...", flush=True)
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
+        self.print("Just converted to dense...", flush=True)
         dense_data = dense_data.mask(node_mask)
         noisy_data = self.apply_noise(dense_data.X, dense_data.E, data.y, node_mask)
+        self.print("Just applied noise...", flush=True)
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=False)
+        self.print("Validation step stop...", flush=True)
         return {'loss': nll}
 
     def on_validation_epoch_end(self) -> None:
@@ -174,7 +179,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                        "val/E_logp": metrics[4]}, commit=False)
 
         self.print(f"Epoch {self.current_epoch}: Val NLL {metrics[0] :.2f} -- Val Atom type KL {metrics[1] :.2f} -- ",
-                   f"Val Edge type KL: {metrics[2] :.2f}")
+                   f"Val Edge type KL: {metrics[2] :.2f}", flush=True)
 
         # Log val nll with default Lightning logger, so it can be monitored by checkpoint callback
         val_nll = metrics[0]
@@ -182,10 +187,11 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
-        self.print('Val loss: %.4f \t Best val loss:  %.4f\n' % (val_nll, self.best_val_nll))
+        self.print('Val loss: %.4f \t Best val loss:  %.4f\n' % (val_nll, self.best_val_nll), flush=True)
 
         self.val_counter += 1
         if self.val_counter % self.cfg.general.sample_every_val == 0:
+            self.print("Sampling for computing metrics...", flush=True)
             start = time.time()
             samples_left_to_generate = self.cfg.general.samples_to_generate
             samples_left_to_save = self.cfg.general.samples_to_save
@@ -195,6 +201,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
             ident = 0
             while samples_left_to_generate > 0:
+                self.print("Sampling batch", flush=True)
                 bs = 2 * self.cfg.train.batch_size
                 to_generate = min(samples_left_to_generate, bs)
                 to_save = min(samples_left_to_save, bs)
@@ -208,15 +215,15 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                 samples_left_to_save -= to_save
                 samples_left_to_generate -= to_generate
                 chains_left_to_save -= chains_save
-            self.print("Computing sampling metrics...")
+            self.print("Computing sampling metrics...", flush=True)
             result_path = os.path.join(os.getcwd(), f'graphs/{self.name}/')
             self.sampling_metrics.forward(samples, self.name, self.current_epoch, val_counter=-1, test=False,
                                           local_rank=self.local_rank, path=result_path) # saving npz
-            self.print(f'Done. Sampling took {time.time() - start:.2f} seconds\n')
+            self.print(f'Done. Sampling took {time.time() - start:.2f} seconds\n', flush=True)
             print("Validation epoch end ends...")
 
     def on_test_epoch_start(self) -> None:
-        self.print("Starting test...")
+        self.print("Starting test...", flush=True)
         self.test_nll.reset()
         self.test_X_kl.reset()
         self.test_E_kl.reset()
@@ -226,12 +233,16 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             utils.setup_wandb(self.cfg)
 
     def test_step(self, data, i):
+        self.print("Starting test step...", flush=True)
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
+        self.print("Just converted to dense...", flush=True)
         dense_data = dense_data.mask(node_mask)
         noisy_data = self.apply_noise(dense_data.X, dense_data.E, data.y, node_mask)
+        self.print("Just applied noise...", flush=True)
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y, node_mask, test=True)
+        self.print("endind test step...", flush=True)
         return {'loss': nll}
 
     def on_test_epoch_end(self) -> None:
@@ -246,13 +257,13 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                        "test/E_logp": metrics[4]}, commit=False)
 
         self.print(f"Epoch {self.current_epoch}: Test NLL {metrics[0] :.2f} -- Test Atom type KL {metrics[1] :.2f} -- ",
-                   f"Test Edge type KL: {metrics[2] :.2f}")
+                   f"Test Edge type KL: {metrics[2] :.2f}", flush=True)
 
         test_nll = metrics[0]
         if wandb.run:
             wandb.log({"test/epoch_NLL": test_nll}, commit=False)
 
-        self.print(f'Test loss: {test_nll :.4f}')
+        self.print(f'Test loss: {test_nll :.4f}', flush=True)
 
         samples_left_to_generate = self.cfg.general.final_model_samples_to_generate
         samples_left_to_save = self.cfg.general.final_model_samples_to_save
@@ -275,7 +286,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             samples_left_to_generate -= to_generate
             chains_left_to_save -= chains_save
         result_path = os.path.join(os.getcwd(), f'graphs/{self.name}')        
-        self.print(f"Saving the generated graphs in {result_path}")
+        self.print(f"Saving the generated graphs in {result_path}", flush=True)
         filename = f'{result_path}/generated_samples1.txt'
         for i in range(2, 10):
             if os.path.exists(filename):
@@ -296,10 +307,10 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                         f.write(f"{bond} ")
                     f.write("\n")
                 f.write("\n")
-        self.print("Generated graphs Saved. Computing sampling metrics...")
+        self.print("Generated graphs Saved. Computing sampling metrics...", flush=True)
         result_path = os.path.join(os.getcwd(), f'graphs/{self.name}/')
         self.sampling_metrics(samples, self.name, self.current_epoch, self.val_counter, test=True, local_rank=self.local_rank, path=result_path)
-        self.print("Done testing.")
+        self.print("Done testing.", flush=True)
 
 
     def kl_prior(self, X, E, node_mask):

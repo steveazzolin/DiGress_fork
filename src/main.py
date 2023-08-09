@@ -194,6 +194,7 @@ def main(cfg: DictConfig):
         print("[WARNING]: Run is called 'debug' -- it will run with fast_dev_run. ")
 
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
+    print("Starting training")
     trainer = Trainer(gradient_clip_val=cfg.train.clip_grad,
                       #strategy="ddp_find_unused_parameters_true",  # Needed to load old checkpoints
                       accelerator='gpu' if use_gpu else 'cpu',
@@ -208,6 +209,7 @@ def main(cfg: DictConfig):
                       plugins=SLURMEnvironment(auto_requeue=False))
 
     if not cfg.general.test_only:
+        print("Starting training2")
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
         if cfg.general.name not in ['debug', 'test']:
             trainer.test(model, datamodule=datamodule)

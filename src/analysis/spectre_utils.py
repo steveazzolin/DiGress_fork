@@ -14,6 +14,7 @@ import numpy as np
 import networkx as nx
 import subprocess as sp
 import concurrent.futures
+import sys
 
 import pygsp as pg
 import secrets
@@ -852,6 +853,7 @@ class SpectreSamplingMetrics(nn.Module):
         # if local_rank == 0:
         print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(self.test_graphs)}"
                   f" test graphs -- emd computation: {self.compute_emd}")
+        sys.stdout.flush()
         networkx_graphs = []
         adjacency_matrices = []
         to_log = {}
@@ -985,10 +987,10 @@ class GridSamplingMetrics(SpectreSamplingMetrics):
     def __init__(self, datamodule):
         super().__init__(datamodule=datamodule,
                          compute_emd=False,
-                         metrics_list=['degree', 'clustering', 'orbit', 'spectre'])
+                         metrics_list=['degree', 'clustering', 'spectre'])
         
 class EgoSamplingMetrics(SpectreSamplingMetrics):
     def __init__(self, datamodule):
         super().__init__(datamodule=datamodule,
                          compute_emd=False,
-                         metrics_list=['degree', 'clustering', 'orbit', 'spectre'])
+                         metrics_list=['degree', 'clustering','spectre'])
