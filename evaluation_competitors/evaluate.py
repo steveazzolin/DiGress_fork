@@ -358,7 +358,7 @@ def main_bigger(args):
         print(path.upper())
         print(f"Found {len(generated)} generated graphs")
         
-        test = np.load(f"../../AHK/dataset/{args.dataset_name}/{args.dataset_name}_large_1.1.npy", allow_pickle=True)
+        test = np.load(f"../../AHK/dataset/{args.dataset_name}/{args.dataset_name}_large_{size}.npy", allow_pickle=True)
         test = [nx.from_numpy_array(test[id]) for id in range(len(test))]
         print(f"Found {len(test)} test graphs")
 
