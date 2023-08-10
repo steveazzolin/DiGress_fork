@@ -18,7 +18,7 @@ from compute_metrics import get_orbit, get_clustering, get_degs, spectral_stats,
 
 
 from src.datasets.spectre_dataset import SpectreGraphDataset, SpectreGraphDataModule
-from src.analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics
+from src.analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, EgoSamplingMetrics, GridSamplingMetrics
 
 
 class SBMDataset(Dataset):
@@ -182,23 +182,17 @@ def get_dataset_dir(name):
         datadir = "data/planar/"
     elif name == "sbm":
         datadir = "data/sbm/"
+    elif name == "grid":
+        datadir = "data/grid/"
+    elif "grid_small" in name:
+        datadir = "data/grid/"
+    elif name == "ego":
+        datadir = "data/ego/"
     base_path = pathlib.Path(os.path.realpath(__file__)).parents[2]
     return os.path.join(base_path, datadir)
 
 def get_reference_graphs(name, path):
     if "false" in path or "0" in path: # size sampled from train distrib
-        # config = dotdict({
-        #     "dataset": dotdict({
-        #         "name": name,
-        #         "datadir": get_dataset_dir(name)
-        #     }),
-        #     "general": dotdict({
-        #         "name": ""
-        #     }),
-        #     "train": dotdict({
-        #         "num_workers": 0
-        #     })
-        # })
         config = dotdict({
             "dataset": dotdict({
                 "name": name,
@@ -257,6 +251,10 @@ def get_reference_graphs(name, path):
             digress_metric = PlanarSamplingMetrics(dataloaders)
         elif name == "sbm":
             digress_metric = SBMSamplingMetrics(dataloaders)
+        elif name == "grid" or "grid_small" in name:
+            digress_metric = GridSamplingMetrics(dataloaders)
+        elif name == "ego":
+            digress_metric = EgoSamplingMetrics(dataloaders)
         test_reference_graphs = digress_metric.test_graphs
         train_reference_graphs = digress_metric.train_graphs
         # test_reference_graphs = loader_to_nx(dataloaders.datasets_steve["test"])
@@ -277,12 +275,25 @@ def main(args):
     print("Shape first generated graph: ", generated["arr_0"].shape)
 
     # convert to NetworkX
-    generated = [nx.from_numpy_array(generated[f"arr_{id}"]) for id in range(len(generated))]
+    generated = [nx.from_numpy_array(generated[f"arr_{id}"]) for id in range(len(generated))][:1024]
     reference, train = get_reference_graphs(args.dataset_name, args.path) #[:len(generated)]
     print(f"Found {len(reference)} reference graphs")
-    print("Shape first generated graph: ", len(reference[0].nodes()))
+    print("Shape first reference graph: ", len(reference[0].nodes()))
     print()
 
+
+    print("Avg reference: ", np.mean([len(g.nodes()) for g in train]))
+    print("Avg generated: ", np.mean([len(g.nodes()) for g in generated]))
+    print(reference[0])
+
+    [g.remove_nodes_from(list(nx.isolates(g))) for g in reference] # remove isolated nodes (in GRID we have all the ones  relative to padding)
+    [g.remove_nodes_from(list(nx.isolates(g))) for g in train]
+
+    [g.remove_nodes_from(list(nx.isolates(g))) for g in generated]
+    generated = [g for g in generated if len(g.nodes()) > 0]
+
+    print("Avg reference no pad: ", np.mean([len(g.nodes()) for g in train]))
+    print("Avg generated no pad: ", np.mean([len(g.nodes()) for g in generated]))
 
     # evaluate metrics
     s1 = get_orbit(reference)
@@ -305,43 +316,104 @@ def main(args):
                             compute_emd=False)
     print("Spectre stat: ", spectre)
 
-    motif = motif_stats(reference, generated, motif_type='4cycle', ground_truth_match=None, 
-                        bins=100, compute_emd=False)
-    print("Motif stat: ", motif)
+    # motif = motif_stats(reference, generated, motif_type='4cycle', ground_truth_match=None, 
+    #                     bins=100, compute_emd=False)
+    # print("Motif stat: ", motif)
 
     # frac_unique, frac_unique_non_isomorphic, fraction_unique_non_isomorphic_valid = eval_fraction_unique_non_isomorphic_valid(
     #         generated, reference, is_sbm_graph) # TODO: maybe change test o train!
     frac_non_isomorphic = 1.0 - eval_fraction_isomorphic(generated, train)
     print("Fraction non-iso graphs: ", frac_non_isomorphic)
+    print("Fraction of iso generated: ", eval_fraction_isomorphic(generated, generated))
 
-    acc_ref, acc_gen = 0, 0
-    for i in range(max(len(generated), len(reference))):
-        if args.dataset_name == "planar":
-            if i < len(generated) and nx.is_planar(generated[i]):
-                acc_gen += 1
-            if i < len(reference) and nx.is_planar(reference[i]):
-                acc_ref += 1
-        elif args.dataset_name == "sbm":
-            if i < len(generated) and is_sbm_graph(generated[i]):
-                acc_gen += 1
-            if i < len(reference) and is_sbm_graph(reference[i]):
-                acc_ref += 1
-    print("Validity gen: ", round(acc_gen / len(generated), 3))
-    print("Validity ref: ", round(acc_ref / len(reference), 3))
+    # acc_ref, acc_gen = 0, 0
+    # for i in range(max(len(generated), len(reference))):
+    #     if args.dataset_name == "planar":
+    #         if i < len(generated) and nx.is_planar(generated[i]):
+    #             acc_gen += 1
+    #         if i < len(reference) and nx.is_planar(reference[i]):
+    #             acc_ref += 1
+    #     elif args.dataset_name == "sbm":
+    #         if i < len(generated) and is_sbm_graph(generated[i]):
+    #             acc_gen += 1
+    #         if i < len(reference) and is_sbm_graph(reference[i]):
+    #             acc_ref += 1
+    # print("Validity gen: ", round(acc_gen / len(generated), 3))
+    # print("Validity ref: ", round(acc_ref / len(reference), 3))
 
     # plot sample graphs
     for i in range(10):
-        nx.draw(reference[i])
-        plt.savefig(f"plots/{args.dataset_name}/{i}.png")
+        nx.draw(generated[i], node_size=30)
+        plt.savefig(f"plots/digress/{args.dataset_name}/{i}.png")
         plt.close()
+
+
+
+def main_bigger(args):
+    for size in ["1.5", "2.0", "4.0", "8.0"]:
+        path = f"../graphs/{args.dataset_name}_{size}_fullprec/generated_adjs.npz"
+        generated = np.load(path)
+        generated = [nx.from_numpy_array(generated[f"arr_{id}"]) for id in range(len(generated))][:256]
+
+        print(path.upper())
+        print(f"Found {len(generated)} generated graphs")
+        
+        test = np.load(f"../../AHK/dataset/{args.dataset_name}/{args.dataset_name}_large_1.1.npy", allow_pickle=True)
+        test = [nx.from_numpy_array(test[id]) for id in range(len(test))]
+        print(f"Found {len(test)} test graphs")
+
+        [g.remove_nodes_from(list(nx.isolates(g))) for g in test] # remove isolated nodes
+        [g.remove_nodes_from(list(nx.isolates(g))) for g in generated]
+        generated = [g for g in generated if len(g.nodes()) > 0]
+
+        print("Avg num_nodes gen/test: ", np.mean([len(g.nodes()) for g in test]), " / ", np.mean([len(g.nodes()) for g in generated]))
+
+        # print("SELFLOOPS: ", [len(list(nx.selfloop_edges(g))) for g in test])
+        # print("SELFLOOPS: ", [len(list(nx.selfloop_edges(g))) for g in generated])
+
+        s1 = get_degs(test)
+        s2 = get_degs(generated)
+        degs = round(compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False), 4)
+
+        s1 = get_orbit(test)
+        s2 = get_orbit(generated)
+        orbit = round(compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, is_hist=False, sigma=30.0), 4)
+
+        s1 = get_clustering(test)
+        s2 = get_clustering(generated)
+        clust = round(compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, sigma=1.0 / 10), 4)
+
+        spectre = round(spectral_stats(test, generated, is_parallel=False, n_eigvals=-1, compute_emd=False), 4)
+
+        acc_ref, acc_gen = 0, 0
+        for i in range(max(len(generated), len(test))):
+            if args.dataset_name == "planar":
+                if i < len(generated) and nx.is_planar(generated[i]):
+                    acc_gen += 1
+                if i < len(test) and nx.is_planar(test[i]):
+                    acc_ref += 1
+            elif args.dataset_name == "sbm":
+                if i < len(generated) and is_sbm_graph(generated[i]):
+                    acc_gen += 1
+                if i < len(test) and is_sbm_graph(test[i]):
+                    acc_ref += 1
+        acc_gen = round(acc_gen / len(generated), 3)
+        acc_ref = round(acc_ref / len(test), 3)
+
+        print(f"Deg:\t{degs}, Clus:\t{clust}, Orbit:\t{orbit}, Spec.:\t{spectre}, Val.:\t{acc_gen}, Val ref.:\t{acc_ref}\n")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_name', type=str, required=True)  
-    parser.add_argument('--path', type=str, required=True, help="path to generated graphs")  
+    parser.add_argument('--path', type=str, required=False, help="path to generated graphs")
+    parser.add_argument('--bigger', action="store_true", required=False, default=None, help="eval bigger splits")
     args = parser.parse_args()
-    main(args)
+
+    if args.bigger is None:
+        main(args)
+    else:
+        main_bigger(args)
 
 
 

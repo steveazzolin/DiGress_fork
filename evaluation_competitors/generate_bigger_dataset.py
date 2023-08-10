@@ -14,10 +14,8 @@ import torch
 from compute_metrics import is_sbm_graph
 
 class SBMDataset(Dataset):
-    def __init__(self, n_graphs, k, same_sample=False, SON=False, ignore_first_eigv=False, max_comm_size=40):
+    def __init__(self, n_graphs, same_sample=False, max_comm_size=40):
         filename = f'sbm_{n_graphs}{"_same_sample" if same_sample else ""}.pt'
-        self.k = k
-        self.ignore_first_eigv = ignore_first_eigv
         if os.path.isfile(filename):
             assert False
             self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max = torch.load(filename)
@@ -63,13 +61,11 @@ class SBMDataset(Dataset):
         size_diff = self.n_max - graph["n_nodes"]
         graph["adj"] = F.pad(self.adjs[idx], [0, size_diff, 0, size_diff])
         return graph
-    
+
 
 class PlanarDataset(Dataset):
-    def __init__(self, n_nodes, n_graphs, k, same_sample=False, SON=False, ignore_first_eigv=False):
+    def __init__(self, n_nodes, n_graphs, same_sample=False):
         filename = f'planar_{n_nodes}_{n_graphs}{"_same_sample" if same_sample else ""}.pt'
-        self.k = k
-        self.ignore_first_eigv = ignore_first_eigv
         if os.path.isfile(filename):
             assert False
             self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample , self.n_max = torch.load(filename)
@@ -95,21 +91,9 @@ class PlanarDataset(Dataset):
                     adj[t[2], t[1]] = 1
                     adj[t[0], t[2]] = 1
                 G = nx.from_numpy_array(adj)
-                adj = torch.from_numpy(adj).float()
-                L = nx.normalized_laplacian_matrix(G).toarray()
-                L = torch.from_numpy(L).float()
-                eigval, eigvec = torch.linalg.eigh(L)
-
-                self.eigvals.append(eigval)
-                self.eigvecs.append(eigvec)
+                adj = torch.from_numpy(adj).float()                
                 self.adjs.append(adj)
                 self.n_nodes.append(len(G.nodes()))
-                max_eigval = torch.max(eigval)
-                if max_eigval > self.max_eigval:
-                    self.max_eigval = max_eigval
-                min_eigval = torch.min(eigval)
-                if min_eigval < self.min_eigval:
-                    self.min_eigval = min_eigval
             self.n_max = n_nodes
             # torch.save([self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max], filename)
             print(f'Dataset {filename} saved')
@@ -123,11 +107,6 @@ class PlanarDataset(Dataset):
         self.val_idxs = idxs[0:int(0.2*graphs_len)]
         self.train_idxs = idxs[int(0.2*graphs_len):int(0.8*graphs_len)]
 
-        self.max_k_eigval = 0
-        for eigv in self.eigvals:
-            if eigv[self.k] > self.max_k_eigval:
-                self.max_k_eigval = eigv[self.k].item()
-
     def __len__(self):
         return len(self.adjs)
 
@@ -138,14 +117,6 @@ class PlanarDataset(Dataset):
         graph["n_nodes"] = self.n_nodes[idx]
         size_diff = self.n_max - graph["n_nodes"]
         graph["adj"] = F.pad(self.adjs[idx], [0, size_diff, 0, size_diff])
-        eigvals = self.eigvals[idx]
-        eigvecs = self.eigvecs[idx]
-        if self.ignore_first_eigv:
-            eigvals = eigvals[1:]
-            eigvecs = eigvecs[:,1:]
-            size_diff += 1
-        graph["eigval"] = F.pad(eigvals, [0, max(0, self.n_max - eigvals.size(0))])
-        graph["eigvec"] = F.pad(eigvecs, [0, size_diff, 0, size_diff])
         graph["mask"] = F.pad(torch.ones_like(self.adjs[idx]), [0, size_diff, 0, size_diff]).long()
         return graph
 

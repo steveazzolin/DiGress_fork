@@ -20,8 +20,8 @@ from compute_metrics import get_orbit, get_clustering, get_degs, spectral_stats,
 
 
 from src.datasets.spectre_dataset import SpectreGraphDataset, SpectreGraphDataModule
-from src.analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, Comm20SamplingMetrics
-#from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInfos
+from src.analysis.spectre_utils import PlanarSamplingMetrics, SBMSamplingMetrics, EgoSamplingMetrics, GridSamplingMetrics
+
 
 class SBMDataset(Dataset):
     def __init__(self, n_graphs, k, same_sample=False, SON=False, ignore_first_eigv=False, max_comm_size=40):
@@ -336,26 +336,15 @@ def get_dataset_dir(name):
         datadir = "data/planar/"
     elif name == "sbm":
         datadir = "data/sbm/"
+    elif name == "ego":
+        datadir = "data/ego/"
+    elif name == "grid":
+        datadir = "data/grid/"
     base_path = pathlib.Path(os.path.realpath(__file__)).parents[2]
     return os.path.join(base_path, datadir)
 
 def get_reference_graphs(name, path):
-    if name in ["sbm", "planar"]:
-        # config = dotdict({
-        #     "dataset": dotdict({
-        #         "name": name,
-        #         "datadir": get_dataset_dir(name)
-        #     }),
-        #     "general": dotdict({
-        #         "name": ""
-        #     }),
-        #     "train": dotdict({
-        #         "num_workers": 0
-        #     })
-        # })
-        # dataloaders = SpectreGraphDataModule(config)
-        # test_reference_graphs = loader_to_nx(dataloaders.datasets_steve["test"])
-        # train_reference_graphs = loader_to_nx(dataloaders.datasets_steve["train"])
+    if name in ["sbm", "planar", "ego", "grid"]:
         config = dotdict({
             "dataset": dotdict({
                 "name": name,
@@ -414,6 +403,10 @@ def get_reference_graphs(name, path):
             digress_metric = PlanarSamplingMetrics(dataloaders)
         elif name == "sbm":
             digress_metric = SBMSamplingMetrics(dataloaders)
+        elif name == "ego":
+            digress_metric = EgoSamplingMetrics(dataloaders)
+        elif name == "grid":
+            digress_metric = GridSamplingMetrics(dataloaders)
         test_reference_graphs = digress_metric.test_graphs
         train_reference_graphs = digress_metric.train_graphs
     elif name == "grid":
@@ -456,11 +449,17 @@ def main(args):
 
     print(f"Found {len(generated)} generated graphs")
     print("Shape first generated graph: ", len(generated[0].nodes()))
+    print("Avg num nodes generated: ", np.mean([len(g.nodes()) for g in generated]))
 
     reference, train = get_reference_graphs(args.dataset_name, args.path) #[:len(generated)]
     print(f"Found {len(reference)} reference graphs")
     print("Shape first generated graph: ", len(reference[0].nodes()))
+    print("Avg num nodes reference: ", np.mean([len(g.nodes()) for g in train]))
+    print("Max num nodes reference: ", np.max([len(g.nodes()) for g in train]))
+    exit()
     print()
+
+    print(reference[0])
 
     c = 0
     for g in generated:
@@ -468,6 +467,8 @@ def main(args):
             c += 1
     print("Graph w/o nodes", c)
     generated = [g for g in generated if len(g.nodes()) > 0]
+    [g.remove_nodes_from(list(nx.isolates(g))) for g in reference] # remove isolated nodes (in GRID we have all the ones  relative to padding)
+    [g.remove_nodes_from(list(nx.isolates(g))) for g in train]
     print(len(generated))
 
     # evaluate metrics
@@ -489,39 +490,80 @@ def main(args):
     spectre = spectral_stats(reference, generated, is_parallel=False, n_eigvals=-1, compute_emd=False)
     print("Spectre stat: ", spectre)
 
-    motif = motif_stats(reference, generated, motif_type='4cycle', ground_truth_match=None, bins=100, compute_emd=False)
-    print("Motif stat: ", motif)
+    # motif = motif_stats(reference, generated, motif_type='4cycle', ground_truth_match=None, bins=100, compute_emd=False)
+    # print("Motif stat: ", motif)
 
     # frac_unique, frac_unique_non_isomorphic, fraction_unique_non_isomorphic_valid = eval_fraction_unique_non_isomorphic_valid(
     #         generated, reference, is_sbm_graph) # TODO: maybe change test o train!
-    frac_non_isomorphic = 1.0 - eval_fraction_isomorphic(generated, train)
-    print("Fraction non-iso graphs: ", frac_non_isomorphic)
+    # frac_non_isomorphic = 1.0 - eval_fraction_isomorphic(generated, train)
+    # print("Fraction non-iso graphs: ", frac_non_isomorphic)
+    # print("Fraction of iso generated: ", eval_fraction_isomorphic(generated, generated))
 
-    acc_ref, acc_gen = 0, 0
-    for i in range(max(len(generated), len(reference))):
-        if args.dataset_name == "planar":
-            if i < len(generated) and nx.is_planar(generated[i]):
-                acc_gen += 1
-            if i < len(reference) and nx.is_planar(reference[i]):
-                acc_ref += 1
-        elif args.dataset_name == "sbm":
-            if i < len(generated) and is_sbm_graph(generated[i]):
-                acc_gen += 1
-            if i < len(reference) and is_sbm_graph(reference[i]):
-                acc_ref += 1
-    print("Validity gen: ", round(acc_gen / len(generated), 3))
-    print("Validity ref: ", round(acc_ref / len(reference), 3))
+    # acc_ref, acc_gen = 0, 0
+    # for i in range(max(len(generated), len(reference))):
+    #     if args.dataset_name == "planar":
+    #         if i < len(generated) and nx.is_planar(generated[i]):
+    #             acc_gen += 1
+    #         if i < len(reference) and nx.is_planar(reference[i]):
+    #             acc_ref += 1
+    #     elif args.dataset_name == "sbm":
+    #         if i < len(generated) and is_sbm_graph(generated[i]):
+    #             acc_gen += 1
+    #         if i < len(reference) and is_sbm_graph(reference[i]):
+    #             acc_ref += 1
+    # print("Validity gen: ", round(acc_gen / len(generated), 3))
+    # print("Validity ref: ", round(acc_ref / len(reference), 3))
 
     # plot sample graphs
     for i in range(10):
-        nx.draw(reference[i])
-        plt.savefig(f"plots/{args.dataset_name}/{i}.png")
+        nx.draw(generated[i], node_size=20)
+        is_bigger = "" if args.bigger == 0 else f"_bigger_{args.bigger}"
+
+        if not os.path.exists(f"plots/graphrnn/{args.dataset_name}{is_bigger}/"):
+            os.makedirs(f"plots/graphrnn/{args.dataset_name}{is_bigger}/")
+
+        plt.savefig(f"plots/graphrnn/{args.dataset_name}{is_bigger}/{i}.png")
         plt.close()
 
+def iterate(args):
+    print(args.dataset_name, args.path)
+    for e in range(2000, 3100, 100):
+        path = args.path + f"/GraphRNN_RNN_{args.dataset_name}_4_128_pred_{e}_1.dat"
+        with open(path, "rb") as f:
+            generated = pkl.load(f)
+
+        reference, train = get_reference_graphs(args.dataset_name, args.path)
+
+        generated = [g for g in generated if len(g.nodes()) > 0]
+        [g.remove_nodes_from(list(nx.isolates(g))) for g in reference]
+        [g.remove_nodes_from(list(nx.isolates(g))) for g in train]
+
+        # evaluate metrics
+        s1 = get_degs(reference)
+        s2 = get_degs(generated)
+        degs = round(mmd_digress.compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False), 4)
+
+        # s1 = get_orbit(reference)
+        # s2 = get_orbit(generated)
+        # orbit = round(mmd_digress.compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, is_hist=False, sigma=30.0), 4)
+
+        s1 = get_clustering(reference)
+        s2 = get_clustering(generated)
+        clust = round(mmd_digress.compute_mmd(s1, s2, kernel=mmd_digress.gaussian_tv, is_parallel=False, sigma=1.0 / 10), 4)
+
+        spectre = round(spectral_stats(reference, generated, is_parallel=False, n_eigvals=-1, compute_emd=False), 4)
+
+        print(f"{e}: Degree:\t{degs}, Clus:\t{clust}, Spectre:\t{spectre}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_name', type=str, required=True)  
     parser.add_argument('--path', type=str, required=True, help="path to generated graphs")
+    parser.add_argument('--bigger', type=int, required=False, default=0)
+    parser.add_argument('--find_best', type=bool, required=False, default=False)    
     args = parser.parse_args()
-    main(args)
+
+    if not args.find_best:
+        main(args)
+    else:
+        iterate(args)
